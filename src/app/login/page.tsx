@@ -19,66 +19,67 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const email =
-      mode === "client" ? clientCodeToLoginEmail(identifier) : identifier;
+    try {
+      const email =
+        mode === "client" ? clientCodeToLoginEmail(identifier) : identifier;
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (signInError) {
-      setError(`DEBUG: ${signInError.message} (status: ${signInError.status})`);
+      if (signInError) {
+        setError(`DEBUG: ${signInError.message} (status: ${signInError.status})`);
+        setLoading(false);
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setError("DEBUG: signed in but no user session found afterward");
+        setLoading(false);
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role, status")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError || !profile) {
+        setError(`DEBUG: profile lookup failed — ${profileError?.message ?? "no profile row"}`);
+        setLoading(false);
+        return;
+      }
+
+      if (profile.status !== "active") {
+        await supabase.auth.signOut();
+        setError("Your account has been deactivated.");
+        setLoading(false);
+        return;
+      }
+
+      const home = { admin: "/admin", trainer: "/trainer", client: "/client" }[profile.role];
+
+      if (!home) {
+        setError(`DEBUG: signed in but role "${profile.role}" is unrecognized`);
+        setLoading(false);
+        return;
+      }
+
+      router.push(home);
+      router.refresh();
+    } catch (err) {
+      // Catch-all: if anything above throws unexpectedly, show it instead
+      // of leaving the button stuck on "Signing in..." with no feedback.
+      console.error("[login] unexpected error:", err);
+      setError(`DEBUG: unexpected exception — ${err instanceof Error ? err.message : String(err)}`);
       setLoading(false);
-      return;
     }
-
-    // Look up the role directly instead of only relying on proxy.ts to
-    // redirect on refresh — this way a failure here (e.g. a missing RLS
-    // policy) shows up as a visible error instead of an endless spinner.
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setError("DEBUG: signed in but no user session found afterward");
-      setLoading(false);
-      return;
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role, status")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile) {
-      setError(`DEBUG: profile lookup failed — ${profileError?.message ?? "no profile row"}`);
-      setLoading(false);
-      return;
-    }
-
-    if (profile.status !== "active") {
-      await supabase.auth.signOut();
-      setError("Your account has been deactivated.");
-      setLoading(false);
-      return;
-    }
-
-    const home = { admin: "/admin", trainer: "/trainer", client: "/client" }[profile.role];
-    console.log("Login succeeded, role:", profile.role, "-> navigating to:", home);
-
-    if (!home) {
-      setError(`DEBUG: signed in but role "${profile.role}" is unrecognized`);
-      setLoading(false);
-      return;
-    }
-
-    router.push(home);
-    router.refresh();
-    // Deliberately not calling setLoading(false) here — we're navigating
-    // away, and clearing it would flash the form back before the new
-    // page takes over.
   }
 
   return (
@@ -109,7 +110,7 @@ export default function LoginPage() {
           onSubmit={handleSubmit}
           className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8"
         >
-          <h1 className="text-xl font-medium mb-6 text-neutral-900">Sign in</h1>
+          <h1 className="text-xl font-medium mb-6 text-neutral-900">Sign in <span className="text-xs text-neutral-300 font-normal">(build-v4)</span></h1>
 
           <label className="block text-sm text-neutral-600 mb-1">
             {mode === "client" ? "Client code" : "Email"}
