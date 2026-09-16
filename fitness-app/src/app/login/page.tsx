@@ -29,7 +29,11 @@ export default function LoginPage() {
       });
 
       if (signInError) {
-        setError(`DEBUG: ${signInError.message} (status: ${signInError.status})`);
+        setError(
+          mode === "client"
+            ? "Client code or password is incorrect."
+            : "Email or password is incorrect."
+        );
         setLoading(false);
         return;
       }
@@ -39,7 +43,7 @@ export default function LoginPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        setError("DEBUG: signed in but no user session found afterward");
+        setError("Something went wrong. Please try again.");
         setLoading(false);
         return;
       }
@@ -51,7 +55,7 @@ export default function LoginPage() {
         .single();
 
       if (profileError || !profile) {
-        setError(`DEBUG: profile lookup failed — ${profileError?.message ?? "no profile row"}`);
+        setError("Something went wrong. Please try again, or contact your admin.");
         setLoading(false);
         return;
       }
@@ -67,7 +71,7 @@ export default function LoginPage() {
       const home = roleHome[profile.role as string];
 
       if (!home) {
-        setError(`DEBUG: signed in but role "${profile.role}" is unrecognized`);
+        setError("Something went wrong. Please contact your admin.");
         setLoading(false);
         return;
       }
@@ -75,10 +79,8 @@ export default function LoginPage() {
       router.push(home);
       router.refresh();
     } catch (err) {
-      // Catch-all: if anything above throws unexpectedly, show it instead
-      // of leaving the button stuck on "Signing in..." with no feedback.
       console.error("[login] unexpected error:", err);
-      setError(`DEBUG: unexpected exception — ${err instanceof Error ? err.message : String(err)}`);
+      setError("Something went wrong. Please try again.");
       setLoading(false);
     }
   }
@@ -111,7 +113,7 @@ export default function LoginPage() {
           onSubmit={handleSubmit}
           className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8"
         >
-          <h1 className="text-xl font-medium mb-6 text-neutral-900">Sign in <span className="text-xs text-neutral-300 font-normal">(build-v4)</span></h1>
+          <h1 className="text-xl font-medium mb-6 text-neutral-900">Sign in</h1>
 
           <label className="block text-sm text-neutral-600 mb-1">
             {mode === "client" ? "Client code" : "Email"}
@@ -140,7 +142,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+            className="w-full bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>
