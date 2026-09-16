@@ -19,23 +19,67 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const email =
-      mode === "client" ? clientCodeToLoginEmail(identifier) : identifier;
+    try {
+      const email =
+        mode === "client" ? clientCodeToLoginEmail(identifier) : identifier;
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      // TEMPORARY: showing the real error for debugging. Revert to the
-      // generic message below once login is confirmed working.
-      setError(`DEBUG: ${error.message} (status: ${error.status})`);
+      if (signInError) {
+        setError(`DEBUG: ${signInError.message} (status: ${signInError.status})`);
+        setLoading(false);
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setError("DEBUG: signed in but no user session found afterward");
+        setLoading(false);
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role, status")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError || !profile) {
+        setError(`DEBUG: profile lookup failed — ${profileError?.message ?? "no profile row"}`);
+        setLoading(false);
+        return;
+      }
+
+      if (profile.status !== "active") {
+        await supabase.auth.signOut();
+        setError("Your account has been deactivated.");
+        setLoading(false);
+        return;
+      }
+
+      const home = { admin: "/admin", trainer: "/trainer", client: "/client" }[profile.role];
+
+      if (!home) {
+        setError(`DEBUG: signed in but role "${profile.role}" is unrecognized`);
+        setLoading(false);
+        return;
+      }
+
+      router.push(home);
+      router.refresh();
+    } catch (err) {
+      // Catch-all: if anything above throws unexpectedly, show it instead
+      // of leaving the button stuck on "Signing in..." with no feedback.
+      console.error("[login] unexpected error:", err);
+      setError(`DEBUG: unexpected exception — ${err instanceof Error ? err.message : String(err)}`);
       setLoading(false);
-      return;
     }
-
-    router.refresh(); // proxy.ts sends the user to their role's dashboard
   }
 
   return (
@@ -66,7 +110,7 @@ export default function LoginPage() {
           onSubmit={handleSubmit}
           className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8"
         >
-          <h1 className="text-xl font-medium mb-6 text-neutral-900">Sign in</h1>
+          <h1 className="text-xl font-medium mb-6 text-neutral-900">Sign in <span className="text-xs text-neutral-300 font-normal">(build-v4)</span></h1>
 
           <label className="block text-sm text-neutral-600 mb-1">
             {mode === "client" ? "Client code" : "Email"}
@@ -95,7 +139,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>

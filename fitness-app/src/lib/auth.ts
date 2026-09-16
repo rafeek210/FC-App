@@ -21,17 +21,25 @@ export async function requireRole(role: Role) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  console.log("[requireRole] user:", user?.id ?? "none");
+
   if (!user) {
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role, status, full_name")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (!profile || profile.status !== "active") {
+  console.log("[requireRole] profile:", profile, "error:", profileError);
+
+  if (profileError || !profile) {
+    redirect("/login?deactivated=1");
+  }
+
+  if (profile.status !== "active") {
     await supabase.auth.signOut();
     redirect("/login?deactivated=1");
   }

@@ -1,12 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const ROLE_HOME: Record<string, string> = {
-  admin: "/admin",
-  trainer: "/trainer",
-  client: "/client",
-};
-
+/**
+ * Deliberately minimal: only blocks unauthenticated visitors from the
+ * protected sections. Role-based routing (which dashboard a logged-in
+ * user should land on) is handled client-side right after login, and
+ * verified again server-side by requireRole() on every protected page —
+ * see src/lib/auth.ts. Duplicating that logic here caused a redirect
+ * loop, since two independent checks were racing each other.
+ */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -44,34 +46,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (user && (isProtected || path === "/login")) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, status")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile || profile.status !== "active") {
-      await supabase.auth.signOut();
-      return NextResponse.redirect(new URL("/login?deactivated=1", request.url));
-    }
-
-    const home = ROLE_HOME[profile.role];
-
-    // Logged in but visiting login page -> send to their dashboard
-    if (path === "/login" && home) {
-      return NextResponse.redirect(new URL(home, request.url));
-    }
-
-    // Logged in but visiting the wrong role's section -> send to their own
-    if (isProtected && home && !path.startsWith(home)) {
-      return NextResponse.redirect(new URL(home, request.url));
-    }
-  }
-
   return response;
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/trainer/:path*", "/client/:path*", "/login"],
+  matcher: ["/admin/:path*", "/trainer/:path*", "/client/:path*"],
 };
