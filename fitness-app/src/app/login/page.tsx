@@ -28,13 +28,9 @@ export default function LoginPage() {
     });
 
     if (error) {
-      // Don't leak whether it's the client-code translation or a real
-      // credential mismatch — same generic message either way.
-      setError(
-        mode === "client"
-          ? "Client code or password is incorrect."
-          : "Email or password is incorrect."
-      );
+      // TEMPORARY: showing the real error for debugging. Revert to the
+      // generic message below once login is confirmed working.
+      setError(`DEBUG: ${error.message} (status: ${error.status})`);
       setLoading(false);
       return;
     }
