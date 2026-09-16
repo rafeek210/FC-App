@@ -63,7 +63,8 @@ export default function LoginPage() {
         return;
       }
 
-      const home = { admin: "/admin", trainer: "/trainer", client: "/client" }[profile.role];
+      const roleHome: Record<string, string> = { admin: "/admin", trainer: "/trainer", client: "/client" };
+      const home = roleHome[profile.role as string];
 
       if (!home) {
         setError(`DEBUG: signed in but role "${profile.role}" is unrecognized`);
