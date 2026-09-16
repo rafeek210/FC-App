@@ -66,8 +66,19 @@ export default function LoginPage() {
     }
 
     const home = { admin: "/admin", trainer: "/trainer", client: "/client" }[profile.role];
-    router.push(home ?? "/login");
+    console.log("Login succeeded, role:", profile.role, "-> navigating to:", home);
+
+    if (!home) {
+      setError(`DEBUG: signed in but role "${profile.role}" is unrecognized`);
+      setLoading(false);
+      return;
+    }
+
+    router.push(home);
     router.refresh();
+    // Deliberately not calling setLoading(false) here — we're navigating
+    // away, and clearing it would flash the form back before the new
+    // page takes over.
   }
 
   return (
