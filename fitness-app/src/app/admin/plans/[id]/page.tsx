@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, use as usePromise } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function NewPlanPage() {
+export default function EditPlanPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = usePromise(params);
   const router = useRouter();
   const supabase = createClient();
 
+  const [loading, setLoading] = useState(true);
+  const [planCode, setPlanCode] = useState("");
   const [form, setForm] = useState({
     name: "",
     planType: "Normal",
@@ -23,23 +26,52 @@ export default function NewPlanPage() {
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    async function load() {
+      const { data, error } = await supabase.from("plans").select("*").eq("id", id).single();
+      if (error || !data) {
+        setMessage(error?.message ?? "Plan not found");
+        setLoading(false);
+        return;
+      }
+      setPlanCode(data.plan_code ?? "");
+      setForm({
+        name: data.name ?? "",
+        planType: data.plan_type ?? "Normal",
+        durationDays: String(data.duration_days ?? ""),
+        amount: data.amount != null ? String(data.amount) : "",
+        applicability: data.applicability ?? "new_and_existing",
+        allowedLeaveDays: String(data.allowed_leave_days ?? 0),
+        startDate: data.start_date ?? "",
+        endDate: data.end_date ?? "",
+        status: data.status ?? "active",
+        remarks: data.remarks ?? "",
+      });
+      setLoading(false);
+    }
+    load();
+  }, [id, supabase]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStatus("saving");
     setMessage("");
 
-    const { error } = await supabase.from("plans").insert({
-      name: form.name,
-      plan_type: form.planType,
-      duration_days: Number(form.durationDays),
-      amount: form.amount ? Number(form.amount) : null,
-      applicability: form.applicability,
-      allowed_leave_days: Number(form.allowedLeaveDays) || 0,
-      start_date: form.startDate || null,
-      end_date: form.endDate || null,
-      status: form.status,
-      remarks: form.remarks || null,
-    });
+    const { error } = await supabase
+      .from("plans")
+      .update({
+        name: form.name,
+        plan_type: form.planType,
+        duration_days: Number(form.durationDays),
+        amount: form.amount ? Number(form.amount) : null,
+        applicability: form.applicability,
+        allowed_leave_days: Number(form.allowedLeaveDays) || 0,
+        start_date: form.startDate || null,
+        end_date: form.endDate || null,
+        status: form.status,
+        remarks: form.remarks || null,
+      })
+      .eq("id", id);
 
     if (error) {
       setStatus("error");
@@ -51,16 +83,24 @@ export default function NewPlanPage() {
     router.refresh();
   }
 
+  if (loading) {
+    return <main className="p-8"><p className="text-sm text-neutral-400">Loading...</p></main>;
+  }
+
   return (
     <main className="p-8 max-w-md">
-      <h1 className="text-xl font-medium mb-6">New subscription plan</h1>
+      <div className="flex items-center gap-2 mb-6">
+        <h1 className="text-xl font-medium">Edit plan</h1>
+        {planCode && (
+          <span className="text-xs text-neutral-400 font-mono">{planCode}</span>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
           <label className="block text-sm text-neutral-600 mb-1">Plan name</label>
           <input
             required
-            placeholder="e.g. 3-Month Transformation"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
@@ -86,7 +126,6 @@ export default function NewPlanPage() {
             required
             type="number"
             min={1}
-            placeholder="e.g. 90"
             value={form.durationDays}
             onChange={(e) => setForm({ ...form, durationDays: e.target.value })}
             className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
@@ -99,7 +138,6 @@ export default function NewPlanPage() {
             type="number"
             min={0}
             step="0.01"
-            placeholder="e.g. 1500"
             value={form.amount}
             onChange={(e) => setForm({ ...form, amount: e.target.value })}
             className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
@@ -126,9 +164,6 @@ export default function NewPlanPage() {
             />
           </div>
         </div>
-        <p className="text-xs text-neutral-400 -mt-3">
-          This is when the plan itself is offered/available — not a client's individual subscription dates.
-        </p>
 
         <div>
           <label className="block text-sm text-neutral-600 mb-1">Applicable to</label>
@@ -185,7 +220,7 @@ export default function NewPlanPage() {
           disabled={status === "saving"}
           className="bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
         >
-          {status === "saving" ? "Creating..." : "Create plan"}
+          {status === "saving" ? "Saving..." : "Save changes"}
         </button>
       </form>
     </main>

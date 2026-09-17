@@ -33,20 +33,29 @@ export default async function PlansPage() {
 
       <div className="flex flex-col gap-3">
         {plans?.map((plan) => (
-          <div
+          <Link
             key={plan.id}
-            className="border border-neutral-200 rounded-xl p-4 flex items-center justify-between"
+            href={`/admin/plans/${plan.id}`}
+            className="border border-neutral-200 rounded-xl p-4 flex items-center justify-between hover:border-rose-300 transition-colors"
           >
             <div>
-              <p className="font-medium text-sm">{plan.name}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-sm">{plan.name}</p>
+                {plan.plan_code && (
+                  <span className="text-xs text-neutral-400 font-mono">{plan.plan_code}</span>
+                )}
+                <span className="text-xs text-neutral-400">{plan.plan_type}</span>
+              </div>
               <p className="text-xs text-neutral-500 mt-1">
                 {plan.duration_days} days
                 {plan.amount ? ` · AED ${plan.amount}` : ""} · {plan.applicability.replace(/_/g, " ")}
                 {plan.allowed_leave_days ? ` · ${plan.allowed_leave_days} leave days allowed` : ""}
+                {plan.start_date ? ` · from ${plan.start_date}` : ""}
+                {plan.end_date ? ` to ${plan.end_date}` : ""}
               </p>
             </div>
             <span
-              className={`text-xs px-2 py-1 rounded-full ${
+              className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
                 plan.status === "active"
                   ? "bg-emerald-50 text-emerald-700"
                   : "bg-neutral-100 text-neutral-500"
@@ -54,7 +63,7 @@ export default async function PlansPage() {
             >
               {plan.status}
             </span>
-          </div>
+          </Link>
         ))}
       </div>
     </main>
