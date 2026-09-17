@@ -4,15 +4,21 @@ import { useEffect, useState, use as usePromise } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-// Which statuses a plan can move to, from its current status.
-// The current status is always included so editing other fields
-// doesn't force a change.
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   active: ["active", "inactive"],
   open: ["open", "closed", "active", "inactive"],
   closed: ["closed", "open", "active"],
   inactive: ["inactive", "active"],
 };
+
+function Spinner() {
+  return (
+    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+    </svg>
+  );
+}
 
 export default function EditPlanPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = usePromise(params);
@@ -22,6 +28,7 @@ export default function EditPlanPage({ params }: { params: Promise<{ id: string 
   const [loading, setLoading] = useState(true);
   const [planCode, setPlanCode] = useState("");
   const [originalStatus, setOriginalStatus] = useState("active");
+  const [initialForm, setInitialForm] = useState<Record<string, string> | null>(null);
   const [form, setForm] = useState({
     name: "",
     planType: "Normal",
@@ -36,9 +43,12 @@ export default function EditPlanPage({ params }: { params: Promise<{ id: string 
   });
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [navigating, setNavigating] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   const datesRequired = form.planType === "Offer" || form.planType === "Challenge";
   const allowedStatuses = STATUS_TRANSITIONS[originalStatus] ?? [originalStatus];
+  const isDirty = initialForm !== null && JSON.stringify(form) !== JSON.stringify(initialForm);
 
   useEffect(() => {
     async function load() {
@@ -50,7 +60,7 @@ export default function EditPlanPage({ params }: { params: Promise<{ id: string 
       }
       setPlanCode(data.plan_code ?? "");
       setOriginalStatus(data.status ?? "active");
-      setForm({
+      const loaded = {
         name: data.name ?? "",
         planType: data.plan_type ?? "Normal",
         durationDays: String(data.duration_days ?? ""),
@@ -61,21 +71,22 @@ export default function EditPlanPage({ params }: { params: Promise<{ id: string 
         endDate: data.end_date ?? "",
         status: data.status ?? "active",
         remarks: data.remarks ?? "",
-      });
+      };
+      setForm(loaded);
+      setInitialForm(loaded);
       setLoading(false);
     }
     load();
   }, [id, supabase]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function save(): Promise<boolean> {
     setStatus("saving");
     setMessage("");
 
     if (datesRequired && (!form.startDate || !form.endDate)) {
       setStatus("error");
       setMessage("Start and end date are required for Offer and Challenge plans.");
-      return;
+      return false;
     }
 
     const { error } = await supabase
@@ -97,31 +108,97 @@ export default function EditPlanPage({ params }: { params: Promise<{ id: string 
     if (error) {
       setStatus("error");
       setMessage(error.message);
-      return;
+      return false;
     }
+    return true;
+  }
 
+  async function goToList() {
+    setNavigating(true);
     router.push("/admin/plans");
     router.refresh();
   }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (await save()) await goToList();
+  }
+
+  function handleCloseClick() {
+    if (isDirty) {
+      setShowCloseConfirm(true);
+    } else {
+      goToList();
+    }
+  }
+
+  async function handleSaveAndClose() {
+    if (await save()) {
+      await goToList();
+    } else {
+      setShowCloseConfirm(false);
+    }
+  }
+
   if (loading) {
-    return <main className="p-8"><p className="text-sm text-neutral-400">Loading...</p></main>;
+    return (
+      <main className="p-8 flex items-center gap-2 text-neutral-400 text-sm">
+        <Spinner /> Loading...
+      </main>
+    );
   }
 
   return (
-    <main className="p-8 max-w-md">
+    <main className="p-8 max-w-md relative">
+      {navigating && (
+        <div className="fixed inset-0 bg-white/60 flex items-center justify-center z-50">
+          <Spinner />
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-medium">Edit plan</h1>
           {planCode && <span className="text-xs text-neutral-400 font-mono">{planCode}</span>}
         </div>
         <button
-          onClick={() => router.push("/admin/plans")}
+          type="button"
+          onClick={handleCloseClick}
           className="text-sm text-neutral-400 hover:text-neutral-600"
         >
           Close
         </button>
       </div>
+
+      {showCloseConfirm && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-5 max-w-xs w-full shadow-lg">
+            <p className="text-sm font-medium mb-1">Unsaved changes</p>
+            <p className="text-xs text-neutral-500 mb-4">
+              You've made changes to this plan. Save before closing?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleSaveAndClose}
+                disabled={status === "saving"}
+                className="bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {status === "saving" && <Spinner />}
+                {status === "saving" ? "Saving..." : "Save changes"}
+              </button>
+              <button onClick={goToList} className="text-sm text-neutral-500 hover:text-neutral-700 py-1">
+                Discard changes
+              </button>
+              <button
+                onClick={() => setShowCloseConfirm(false)}
+                className="text-sm text-neutral-400 hover:text-neutral-600 py-1"
+              >
+                Keep editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
@@ -254,13 +331,14 @@ export default function EditPlanPage({ params }: { params: Promise<{ id: string 
           <button
             type="submit"
             disabled={status === "saving"}
-            className="flex-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+            className="flex-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
           >
+            {status === "saving" && <Spinner />}
             {status === "saving" ? "Saving..." : "Save changes"}
           </button>
           <button
             type="button"
-            onClick={() => router.push("/admin/plans")}
+            onClick={handleCloseClick}
             className="px-4 rounded-lg border border-neutral-300 text-sm font-medium hover:bg-neutral-50"
           >
             Close
