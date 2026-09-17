@@ -14,14 +14,20 @@ export default async function PlansPage() {
 
   return (
     <main className="p-8 max-w-3xl">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-medium">Subscription plans</h1>
-        <Link
-          href="/admin/plans/new"
-          className="bg-rose-500 hover:bg-rose-600 text-white rounded-lg px-4 py-2 text-sm font-medium"
-        >
-          + New plan
-        </Link>
+      <div className="grid grid-cols-3 items-center mb-6">
+        <div />
+        <h1 className="text-xl font-medium text-center">Subscription plans</h1>
+        <div className="flex justify-end">
+          <Link
+            href="/admin/plans/new"
+            aria-label="New plan"
+            className="bg-rose-500 hover:bg-rose-600 text-white rounded-lg w-9 h-9 flex items-center justify-center"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+          </Link>
+        </div>
       </div>
 
       {error && (

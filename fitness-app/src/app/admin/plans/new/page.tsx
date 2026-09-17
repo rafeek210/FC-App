@@ -23,10 +23,18 @@ export default function NewPlanPage() {
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState("");
 
+  const datesRequired = form.planType === "Offer" || form.planType === "Challenge";
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStatus("saving");
     setMessage("");
+
+    if (datesRequired && (!form.startDate || !form.endDate)) {
+      setStatus("error");
+      setMessage("Start and end date are required for Offer and Challenge plans.");
+      return;
+    }
 
     const { error } = await supabase.from("plans").insert({
       name: form.name,
@@ -53,7 +61,15 @@ export default function NewPlanPage() {
 
   return (
     <main className="p-8 max-w-md">
-      <h1 className="text-xl font-medium mb-6">New subscription plan</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-medium">New subscription plan</h1>
+        <button
+          onClick={() => router.push("/admin/plans")}
+          className="text-sm text-neutral-400 hover:text-neutral-600"
+        >
+          Close
+        </button>
+      </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
@@ -95,21 +111,27 @@ export default function NewPlanPage() {
 
         <div>
           <label className="block text-sm text-neutral-600 mb-1">Amount (optional)</label>
-          <input
-            type="number"
-            min={0}
-            step="0.01"
-            placeholder="e.g. 1500"
-            value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-          />
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400">₹</span>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="e.g. 1500"
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+              className="w-full rounded-lg border border-neutral-300 pl-7 pr-3 py-2 text-sm"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm text-neutral-600 mb-1">Start date</label>
+            <label className="block text-sm text-neutral-600 mb-1">
+              Start date {datesRequired && <span className="text-rose-500">*</span>}
+            </label>
             <input
+              required={datesRequired}
               type="date"
               value={form.startDate}
               onChange={(e) => setForm({ ...form, startDate: e.target.value })}
@@ -117,8 +139,11 @@ export default function NewPlanPage() {
             />
           </div>
           <div>
-            <label className="block text-sm text-neutral-600 mb-1">End date</label>
+            <label className="block text-sm text-neutral-600 mb-1">
+              End date {datesRequired && <span className="text-rose-500">*</span>}
+            </label>
             <input
+              required={datesRequired}
               type="date"
               value={form.endDate}
               onChange={(e) => setForm({ ...form, endDate: e.target.value })}
@@ -127,7 +152,9 @@ export default function NewPlanPage() {
           </div>
         </div>
         <p className="text-xs text-neutral-400 -mt-3">
-          This is when the plan itself is offered/available — not a client's individual subscription dates.
+          {datesRequired
+            ? "Required for Offer and Challenge plans — when this plan itself is available."
+            : "Optional for Normal plans."}
         </p>
 
         <div>
@@ -162,10 +189,9 @@ export default function NewPlanPage() {
             className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
           >
             <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
             <option value="open">Open</option>
-            <option value="closed">Closed</option>
           </select>
+          <p className="text-xs text-neutral-400 mt-1">A new plan starts as Active or Open only.</p>
         </div>
 
         <div>
