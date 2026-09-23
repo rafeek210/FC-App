@@ -49,11 +49,13 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
   const [navigating, setNavigating] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
-  const [actionBusy, setActionBusy] = useState<"deactivate" | "delete" | "password" | null>(null);
+  const [actionBusy, setActionBusy] = useState<"deactivate" | "delete" | "password" | "code" | null>(null);
   const [actionMessage, setActionMessage] = useState("");
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCodePrompt, setShowCodePrompt] = useState(false);
+  const [newCode, setNewCode] = useState("");
 
   const isDirty = initialForm !== null && JSON.stringify(form) !== JSON.stringify(initialForm);
 
@@ -237,6 +239,30 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
     setActionMessage("Password reset. Share the new password with the client directly.");
   }
 
+  async function handleChangeCode() {
+    if (!newCode.trim()) {
+      setActionMessage("Enter a client code.");
+      return;
+    }
+    setActionBusy("code");
+    setActionMessage("");
+    const res = await fetch("/api/admin/update-client-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: id, newClientCode: newCode.trim() }),
+    });
+    const data = await res.json();
+    setActionBusy(null);
+    if (!res.ok) {
+      setActionMessage(data.error ?? "Could not update client code");
+      return;
+    }
+    setClientCode(newCode.trim());
+    setShowCodePrompt(false);
+    setNewCode("");
+    setActionMessage("Client code updated. Share the new code with the client — their old code no longer works.");
+  }
+
   async function handleDelete() {
     setActionBusy("delete");
     setActionMessage("");
@@ -326,6 +352,39 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
               </button>
               <button onClick={goToList} className="text-sm text-neutral-500 hover:text-neutral-700 py-1">Discard changes</button>
               <button onClick={() => setShowCloseConfirm(false)} className="text-sm text-neutral-400 hover:text-neutral-600 py-1">Keep editing</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCodePrompt && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-5 max-w-xs w-full shadow-lg">
+            <p className="text-sm font-medium mb-1">Change client code</p>
+            <p className="text-xs text-neutral-500 mb-3">
+              This updates their login too — the old code will stop working immediately.
+            </p>
+            <input
+              autoFocus
+              placeholder="e.g. FC-0043"
+              value={newCode}
+              onChange={(e) => setNewCode(e.target.value)}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm mb-3"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleChangeCode}
+                disabled={actionBusy === "code"}
+                className="flex-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {actionBusy === "code" && <Spinner />}{actionBusy === "code" ? "Saving..." : "Update code"}
+              </button>
+              <button
+                onClick={() => { setShowCodePrompt(false); setNewCode(""); }}
+                className="px-4 rounded-lg border border-neutral-300 text-sm hover:bg-neutral-50"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -488,6 +547,9 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
           </button>
           <button onClick={() => setShowPasswordPrompt(true)} className="text-sm text-left px-3 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-50">
             Reset password
+          </button>
+          <button onClick={() => { setShowCodePrompt(true); setNewCode(clientCode); }} className="text-sm text-left px-3 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-50">
+            Change client code
           </button>
           <button
             onClick={() => hasAnySubscription ? null : setShowDeleteConfirm(true)}
