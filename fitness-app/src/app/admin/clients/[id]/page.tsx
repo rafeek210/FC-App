@@ -17,6 +17,7 @@ const LEVEL_OPTIONS = ["Pre-diagnostic", "Diagnosed", "On Medication", "Cured"];
 const EMPTY_FORM = {
   fullName: "", dob: "", primaryContact: "", whatsappContact: "",
   secondaryContact: "", email: "", joinedVia: "", fitnessGoal: "", remarks: "",
+  nationality: "", residentLocation: "",
 };
 
 function initials(name: string) {
@@ -39,8 +40,11 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const [conditions, setConditions] = useState<HealthCondition[]>([]);
+  const [showAddCondition, setShowAddCondition] = useState(false);
   const [newCondition, setNewCondition] = useState({ condition: CONDITION_OPTIONS[0], level: LEVEL_OPTIONS[0], years: "" });
   const [conditionBusy, setConditionBusy] = useState(false);
+
+  const [showAccountActions, setShowAccountActions] = useState(false);
 
   const [initialForm, setInitialForm] = useState<typeof EMPTY_FORM | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -97,6 +101,8 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
         joinedVia: data.joined_via ?? "",
         fitnessGoal: data.fitness_goal ?? "",
         remarks: data.remarks ?? "",
+        nationality: data.nationality ?? "",
+        residentLocation: data.resident_location ?? "",
       };
       setForm(loaded);
       setInitialForm(loaded);
@@ -150,6 +156,7 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
     });
     if (!error) {
       setNewCondition({ condition: CONDITION_OPTIONS[0], level: LEVEL_OPTIONS[0], years: "" });
+      setShowAddCondition(false);
       await loadConditions();
     }
     setConditionBusy(false);
@@ -174,6 +181,8 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
         joined_via: form.joinedVia || null,
         fitness_goal: form.fitnessGoal || null,
         remarks: form.remarks || null,
+        nationality: form.nationality || null,
+        resident_location: form.residentLocation || null,
       }).eq("id", id),
     ]);
     const error = profileError || clientError;
@@ -302,31 +311,39 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
         </svg>
       </button>
 
-      <div className="flex items-center gap-2 mb-2">
-        <h1 className="text-xl font-medium">Edit client</h1>
-        <span className="text-xs text-neutral-400 font-mono">{clientCode}</span>
-      </div>
+      <h1 className="text-xl font-medium mb-4">Edit client</h1>
 
-      <div className="flex items-center gap-2 mb-6">
-        <span className={`text-xs px-2.5 py-1 rounded-full ${accountStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-500"}`}>
-          {accountStatus === "active" ? "Active" : "Deactivated"}
-        </span>
-        {joiningDate && <span className="text-xs text-neutral-400">Joined {joiningDate}</span>}
-      </div>
-
-      <div className="flex items-center gap-3 mb-6">
-        {photoUrl ? (
-          <img src={photoUrl} alt="" className="w-14 h-14 rounded-full object-cover" />
-        ) : (
-          <div className="w-14 h-14 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-lg font-medium">
-            {initials(form.fullName || "?")}
+      <div className="flex items-center gap-4 mb-6">
+        <label className="relative group cursor-pointer shrink-0">
+          <div className="w-16 h-16 rounded-full overflow-hidden bg-rose-100 text-rose-600 flex items-center justify-center text-lg font-medium">
+            {photoUrl ? (
+              <img src={photoUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              initials(form.fullName || "?")
+            )}
           </div>
-        )}
-        <label className="text-sm text-rose-600 hover:text-rose-700 cursor-pointer flex items-center gap-2">
-          {uploadingPhoto && <Spinner />}
-          {uploadingPhoto ? "Uploading..." : "Change photo"}
+          <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            {uploadingPhoto ? (
+              <Spinner className="w-4 h-4 text-white" />
+            ) : (
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828H9V13z" />
+              </svg>
+            )}
+          </div>
           <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={uploadingPhoto} />
         </label>
+
+        <div>
+          <div className="flex items-center gap-2">
+            <p className="font-medium">{form.fullName}</p>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${accountStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-500"}`}>
+              {accountStatus === "active" ? "Active" : "Deactivated"}
+            </span>
+          </div>
+          <p className="text-xs text-neutral-400 font-mono mt-0.5">{clientCode}</p>
+          {joiningDate && <p className="text-xs text-neutral-400 mt-0.5">Joined {joiningDate}</p>}
+        </div>
       </div>
 
       <div className="border border-neutral-200 rounded-lg p-4 mb-6 bg-neutral-50">
@@ -361,30 +378,13 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-5 max-w-xs w-full shadow-lg">
             <p className="text-sm font-medium mb-1">Change client code</p>
-            <p className="text-xs text-neutral-500 mb-3">
-              This updates their login too — the old code will stop working immediately.
-            </p>
-            <input
-              autoFocus
-              placeholder="e.g. FC-0043"
-              value={newCode}
-              onChange={(e) => setNewCode(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm mb-3"
-            />
+            <p className="text-xs text-neutral-500 mb-3">This updates their login too — the old code will stop working immediately.</p>
+            <input autoFocus placeholder="e.g. FC-0043" value={newCode} onChange={(e) => setNewCode(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm mb-3" />
             <div className="flex gap-2">
-              <button
-                onClick={handleChangeCode}
-                disabled={actionBusy === "code"}
-                className="flex-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
-              >
+              <button onClick={handleChangeCode} disabled={actionBusy === "code"} className="flex-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50">
                 {actionBusy === "code" && <Spinner />}{actionBusy === "code" ? "Saving..." : "Update code"}
               </button>
-              <button
-                onClick={() => { setShowCodePrompt(false); setNewCode(""); }}
-                className="px-4 rounded-lg border border-neutral-300 text-sm hover:bg-neutral-50"
-              >
-                Cancel
-              </button>
+              <button onClick={() => { setShowCodePrompt(false); setNewCode(""); }} className="px-4 rounded-lg border border-neutral-300 text-sm hover:bg-neutral-50">Cancel</button>
             </div>
           </div>
         </div>
@@ -420,7 +420,7 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form id="client-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
           <label className="block text-sm text-neutral-600 mb-1">Full name</label>
           <input required value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
@@ -429,6 +429,17 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
         <div>
           <label className="block text-sm text-neutral-600 mb-1">Date of birth</label>
           <input type="date" value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm text-neutral-600 mb-1">Nationality</label>
+            <input value={form.nationality} onChange={(e) => setForm({ ...form, nationality: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm text-neutral-600 mb-1">Resident location</label>
+            <input value={form.residentLocation} onChange={(e) => setForm({ ...form, residentLocation: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -474,16 +485,18 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
         </div>
 
         {status === "error" && <p className="text-sm text-rose-600">{message}</p>}
-
-        <div className="flex gap-2">
-          <button type="submit" disabled={status === "saving"} className="flex-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
-            {status === "saving" && <Spinner />}{status === "saving" ? "Saving..." : "Save changes"}
-          </button>
-        </div>
       </form>
 
       <div className="mt-8 pt-6 border-t border-neutral-200">
-        <p className="text-xs font-medium text-neutral-500 mb-3">Health conditions</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-medium text-neutral-500">Health conditions</p>
+          {!showAddCondition && (
+            <button onClick={() => setShowAddCondition(true)} className="text-xs text-rose-600 hover:text-rose-700 font-medium">
+              + Add condition
+            </button>
+          )}
+        </div>
+
         {conditions.length > 0 && (
           <div className="border border-neutral-200 rounded-lg overflow-hidden mb-3">
             <table className="w-full text-xs">
@@ -514,52 +527,76 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
             </table>
           </div>
         )}
-        <div className="flex gap-2 items-end">
-          <div className="flex-1">
-            <label className="block text-xs text-neutral-500 mb-1">Condition</label>
-            <select value={newCondition.condition} onChange={(e) => setNewCondition({ ...newCondition, condition: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs bg-white">
-              {CONDITION_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+
+        {showAddCondition && (
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <label className="block text-xs text-neutral-500 mb-1">Condition</label>
+              <select value={newCondition.condition} onChange={(e) => setNewCondition({ ...newCondition, condition: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs bg-white">
+                {CONDITION_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs text-neutral-500 mb-1">Level</label>
+              <select value={newCondition.level} onChange={(e) => setNewCondition({ ...newCondition, level: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs bg-white">
+                {LEVEL_OPTIONS.map((l) => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+            <div className="w-16">
+              <label className="block text-xs text-neutral-500 mb-1">Years</label>
+              <input type="number" min={0} value={newCondition.years} onChange={(e) => setNewCondition({ ...newCondition, years: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs" />
+            </div>
+            <button onClick={handleAddCondition} disabled={conditionBusy} className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-900 text-white text-xs font-medium flex items-center gap-1 disabled:opacity-50">
+              {conditionBusy && <Spinner className="w-3 h-3" />} Add
+            </button>
+            <button onClick={() => setShowAddCondition(false)} className="px-2 py-1.5 text-xs text-neutral-400 hover:text-neutral-600">
+              Cancel
+            </button>
           </div>
-          <div className="flex-1">
-            <label className="block text-xs text-neutral-500 mb-1">Level</label>
-            <select value={newCondition.level} onChange={(e) => setNewCondition({ ...newCondition, level: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs bg-white">
-              {LEVEL_OPTIONS.map((l) => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
-          <div className="w-16">
-            <label className="block text-xs text-neutral-500 mb-1">Years</label>
-            <input type="number" min={0} value={newCondition.years} onChange={(e) => setNewCondition({ ...newCondition, years: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs" />
-          </div>
-          <button onClick={handleAddCondition} disabled={conditionBusy} className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-900 text-white text-xs font-medium flex items-center gap-1 disabled:opacity-50">
-            {conditionBusy && <Spinner className="w-3 h-3" />} Add
-          </button>
-        </div>
+        )}
+      </div>
+
+      <div className="mt-6 flex gap-2">
+        <button type="submit" form="client-form" disabled={status === "saving"} className="flex-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+          {status === "saving" && <Spinner />}{status === "saving" ? "Saving..." : "Save changes"}
+        </button>
       </div>
 
       <div className="mt-8 pt-6 border-t border-neutral-200">
-        <p className="text-xs font-medium text-neutral-500 mb-3">Account actions</p>
-        {actionMessage && <p className="text-xs text-neutral-600 mb-3">{actionMessage}</p>}
-        <div className="flex flex-col gap-2">
-          <button onClick={toggleActive} disabled={actionBusy === "deactivate"} className="text-sm text-left px-3 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 flex items-center gap-2 disabled:opacity-50">
-            {actionBusy === "deactivate" && <Spinner />}
-            {accountStatus === "active" ? "Deactivate client" : "Reactivate client"}
-          </button>
-          <button onClick={() => setShowPasswordPrompt(true)} className="text-sm text-left px-3 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-50">
-            Reset password
-          </button>
-          <button onClick={() => { setShowCodePrompt(true); setNewCode(clientCode); }} className="text-sm text-left px-3 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-50">
-            Change client code
-          </button>
-          <button
-            onClick={() => hasAnySubscription ? null : setShowDeleteConfirm(true)}
-            disabled={hasAnySubscription}
-            title={hasAnySubscription ? "Can't delete — a subscription is linked to this client" : undefined}
-            className="text-sm text-left px-3 py-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Delete client{hasAnySubscription ? " (subscription linked)" : ""}
-          </button>
-        </div>
+        <button
+          onClick={() => setShowAccountActions((v) => !v)}
+          className="flex items-center justify-between w-full text-xs font-medium text-neutral-500 mb-3"
+        >
+          Account actions
+          <svg className={`w-3.5 h-3.5 transition-transform ${showAccountActions ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {showAccountActions && (
+          <div>
+            {actionMessage && <p className="text-xs text-neutral-600 mb-3">{actionMessage}</p>}
+            <div className="flex flex-col gap-2">
+              <button onClick={toggleActive} disabled={actionBusy === "deactivate"} className="text-sm text-left px-3 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-50 flex items-center gap-2 disabled:opacity-50">
+                {actionBusy === "deactivate" && <Spinner />}
+                {accountStatus === "active" ? "Deactivate client" : "Reactivate client"}
+              </button>
+              <button onClick={() => setShowPasswordPrompt(true)} className="text-sm text-left px-3 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-50">
+                Reset password
+              </button>
+              <button onClick={() => { setShowCodePrompt(true); setNewCode(clientCode); }} className="text-sm text-left px-3 py-2 rounded-lg border border-neutral-300 hover:bg-neutral-50">
+                Change client code
+              </button>
+              <button
+                onClick={() => hasAnySubscription ? null : setShowDeleteConfirm(true)}
+                disabled={hasAnySubscription}
+                title={hasAnySubscription ? "Can't delete — a subscription is linked to this client" : undefined}
+                className="text-sm text-left px-3 py-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Delete client{hasAnySubscription ? " (subscription linked)" : ""}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

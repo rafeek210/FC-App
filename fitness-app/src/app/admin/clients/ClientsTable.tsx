@@ -65,13 +65,13 @@ export default function ClientsTable({ clients }: { clients: Client[] }) {
                 <tr key={c.id} className="border-b border-neutral-100 last:border-0 hover:bg-rose-50/40">
                   <td className="px-4 py-2.5 w-12">
                     <Link href={`/admin/clients/${c.id}`}>
-                      {c.profile_pic_url ? (
-                        <img src={c.profile_pic_url} alt="" className="w-8 h-8 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xs font-medium">
-                          {initials(c.profiles?.full_name ?? "?")}
-                        </div>
-                      )}
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-rose-100 text-rose-600 flex items-center justify-center text-xs font-medium shrink-0">
+                        {c.profile_pic_url ? (
+                          <img src={c.profile_pic_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          initials(c.profiles?.full_name ?? "?")
+                        )}
+                      </div>
                     </Link>
                   </td>
                   <td className="px-4 py-2.5">

@@ -16,7 +16,7 @@ export default async function ClientsPage() {
     <main className="p-8 max-w-4xl">
       <div className="grid grid-cols-3 items-center mb-6">
         <div />
-        <h1 className="text-xl font-medium text-center">Clients</h1>
+        <h1 className="text-xl font-medium text-center">Client Details</h1>
         <div className="flex justify-end">
           <Link
             href="/admin/clients/new"

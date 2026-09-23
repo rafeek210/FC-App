@@ -17,6 +17,8 @@ const EMPTY_FORM = {
   joinedVia: "",
   fitnessGoal: "",
   remarks: "",
+  nationality: "",
+  residentLocation: "",
 };
 
 export default function NewClientPage() {
@@ -192,6 +194,25 @@ export default function NewClientPage() {
             onChange={(e) => setForm({ ...form, fitnessGoal: e.target.value })}
             className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm text-neutral-600 mb-1">Nationality (optional)</label>
+            <input
+              value={form.nationality}
+              onChange={(e) => setForm({ ...form, nationality: e.target.value })}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-neutral-600 mb-1">Resident location (optional)</label>
+            <input
+              value={form.residentLocation}
+              onChange={(e) => setForm({ ...form, residentLocation: e.target.value })}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            />
+          </div>
         </div>
 
         <p className="text-xs text-neutral-400 -mt-2">
