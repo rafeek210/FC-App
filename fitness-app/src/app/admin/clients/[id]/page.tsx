@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import Spinner from "@/components/Spinner";
 
 type CurrentSub = { id: string; plan_name: string; start_date: string; end_date: string; status: string; extended_days: number; extension_reason: string | null } | null;
-type PlanOption = { id: string; name: string; duration_days: number; applicability: string };
 type HealthCondition = { id: string; condition: string; level: string; years_since: number | null };
 
 const CONDITION_OPTIONS = [
@@ -49,19 +48,6 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
   const [conditionBusy, setConditionBusy] = useState(false);
 
   const [showAccountActions, setShowAccountActions] = useState(false);
-
-  const [showAssignPlan, setShowAssignPlan] = useState(false);
-  const [eligiblePlans, setEligiblePlans] = useState<PlanOption[]>([]);
-  const [assignPlanId, setAssignPlanId] = useState("");
-  const [assignStartDate, setAssignStartDate] = useState(new Date().toISOString().slice(0, 10));
-  const [assignBusy, setAssignBusy] = useState(false);
-  const [assignMessage, setAssignMessage] = useState("");
-
-  const [showExtend, setShowExtend] = useState(false);
-  const [extendDays, setExtendDays] = useState("");
-  const [extendReason, setExtendReason] = useState("");
-  const [extendBusy, setExtendBusy] = useState(false);
-  const [extendMessage, setExtendMessage] = useState("");
 
   const [initialForm, setInitialForm] = useState<typeof EMPTY_FORM | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -292,86 +278,6 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
     setActionMessage("Client code updated. Share the new code with the client — their old code no longer works.");
   }
 
-  async function openAssignPlan() {
-    setAssignMessage("");
-    const { data } = await supabase
-      .from("plans")
-      .select("id, name, duration_days, applicability")
-      .in("status", ["active", "open"]);
-
-    const eligible = (data ?? []).filter((p) => {
-      if (p.applicability === "new") return !hasAnySubscription;
-      if (p.applicability === "existing") return hasAnySubscription;
-      return true; // new_and_existing
-    });
-    setEligiblePlans(eligible);
-    setAssignPlanId(eligible[0]?.id ?? "");
-    setShowAssignPlan(true);
-  }
-
-  async function handleAssignPlan() {
-    const plan = eligiblePlans.find((p) => p.id === assignPlanId);
-    if (!plan) {
-      setAssignMessage("Choose a plan.");
-      return;
-    }
-    setAssignBusy(true);
-    setAssignMessage("");
-
-    const start = new Date(assignStartDate + "T00:00:00");
-    const end = new Date(start);
-    end.setDate(end.getDate() + plan.duration_days);
-
-    const { error } = await supabase.from("client_subscriptions").insert({
-      client_id: id,
-      plan_id: plan.id,
-      start_date: assignStartDate,
-      end_date: end.toISOString().slice(0, 10),
-      status: "active",
-    });
-
-    setAssignBusy(false);
-    if (error) {
-      setAssignMessage(error.message);
-      return;
-    }
-    setShowAssignPlan(false);
-    await loadCurrentSub();
-  }
-
-  async function handleExtend() {
-    if (!currentSub) return;
-    const days = Number(extendDays);
-    if (!days || days <= 0) {
-      setExtendMessage("Enter a number of days.");
-      return;
-    }
-    setExtendBusy(true);
-    setExtendMessage("");
-
-    const newEnd = new Date(currentSub.end_date + "T00:00:00");
-    newEnd.setDate(newEnd.getDate() + days);
-
-    const { error } = await supabase
-      .from("client_subscriptions")
-      .update({
-        end_date: newEnd.toISOString().slice(0, 10),
-        extended_days: (currentSub.extended_days ?? 0) + days,
-        extension_reason: extendReason || currentSub.extension_reason || null,
-      })
-      .eq("id", currentSub.id);
-
-    setExtendBusy(false);
-    if (error) {
-      setExtendMessage(error.message);
-      return;
-    }
-    setShowExtend(false);
-    setExtendDays("");
-    setExtendReason("");
-    await loadCurrentSub();
-  }
-
   async function handleDelete() {
     setActionBusy("delete");
     setActionMessage("");
@@ -449,15 +355,9 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
       <div className="border border-neutral-200 rounded-lg p-4 mb-6 bg-neutral-50">
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-medium text-neutral-500">Current subscription</p>
-          {hasAnySubscription && currentSub ? (
-            <button onClick={() => setShowExtend(true)} className="text-xs text-rose-600 hover:text-rose-700 font-medium">
-              Extend
-            </button>
-          ) : (
-            <button onClick={openAssignPlan} className="text-xs text-rose-600 hover:text-rose-700 font-medium">
-              + Assign plan
-            </button>
-          )}
+          <button onClick={() => router.push(`/admin/clients?assign=${id}`)} className="text-xs text-rose-600 hover:text-rose-700 font-medium">
+            {hasAnySubscription ? "Manage" : "+ Add"}
+          </button>
         </div>
         {hasAnySubscription && currentSub ? (
           <div>
@@ -471,61 +371,6 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
           <p className="text-sm text-neutral-400">Not yet assigned.</p>
         )}
       </div>
-
-      {showAssignPlan && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-5 max-w-xs w-full shadow-lg">
-            <p className="text-sm font-medium mb-3">Assign a plan</p>
-            {eligiblePlans.length === 0 ? (
-              <p className="text-xs text-neutral-500 mb-3">
-                No eligible plans right now — check that a plan is Active/Open and its applicability matches this client (new vs existing).
-              </p>
-            ) : (
-              <>
-                <label className="block text-xs text-neutral-500 mb-1">Plan</label>
-                <select value={assignPlanId} onChange={(e) => setAssignPlanId(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white mb-3">
-                  {eligiblePlans.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.duration_days} days)</option>
-                  ))}
-                </select>
-                <label className="block text-xs text-neutral-500 mb-1">Start date</label>
-                <input type="date" value={assignStartDate} onChange={(e) => setAssignStartDate(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm mb-3" />
-              </>
-            )}
-            {assignMessage && <p className="text-xs text-rose-600 mb-3">{assignMessage}</p>}
-            <div className="flex gap-2">
-              {eligiblePlans.length > 0 && (
-                <button onClick={handleAssignPlan} disabled={assignBusy} className="flex-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50">
-                  {assignBusy && <Spinner />}{assignBusy ? "Assigning..." : "Assign"}
-                </button>
-              )}
-              <button onClick={() => setShowAssignPlan(false)} className="px-4 rounded-lg border border-neutral-300 text-sm hover:bg-neutral-50">
-                {eligiblePlans.length === 0 ? "Close" : "Cancel"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showExtend && currentSub && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-5 max-w-xs w-full shadow-lg">
-            <p className="text-sm font-medium mb-1">Extend subscription</p>
-            <p className="text-xs text-neutral-500 mb-3">Current end date: {currentSub.end_date}</p>
-            <label className="block text-xs text-neutral-500 mb-1">Additional days</label>
-            <input type="number" min={1} value={extendDays} onChange={(e) => setExtendDays(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm mb-3" />
-            <label className="block text-xs text-neutral-500 mb-1">Reason</label>
-            <textarea rows={2} value={extendReason} onChange={(e) => setExtendReason(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm mb-3" />
-            {extendMessage && <p className="text-xs text-rose-600 mb-3">{extendMessage}</p>}
-            <div className="flex gap-2">
-              <button onClick={handleExtend} disabled={extendBusy} className="flex-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50">
-                {extendBusy && <Spinner />}{extendBusy ? "Saving..." : "Extend"}
-              </button>
-              <button onClick={() => setShowExtend(false)} className="px-4 rounded-lg border border-neutral-300 text-sm hover:bg-neutral-50">Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showCloseConfirm && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">

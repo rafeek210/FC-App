@@ -2,9 +2,15 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import ClientsTable from "./ClientsTable";
+import SubscriptionsButton from "./SubscriptionsButton";
 
-export default async function ClientsPage() {
+export default async function ClientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ assign?: string }>;
+}) {
   await requireRole("admin");
+  const { assign } = await searchParams;
   const supabase = await createClient();
 
   const { data: clients, error } = await supabase
@@ -12,12 +18,19 @@ export default async function ClientsPage() {
     .select("*, profiles!inner(full_name, status)")
     .order("client_code", { ascending: true });
 
+  const clientOptions = (clients ?? []).map((c) => ({
+    id: c.id,
+    client_code: c.client_code,
+    full_name: c.profiles?.full_name ?? "",
+  }));
+
   return (
     <main className="p-8 max-w-4xl">
       <div className="grid grid-cols-3 items-center mb-6">
         <div />
         <h1 className="text-xl font-medium text-center">Client Details</h1>
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <SubscriptionsButton clients={clientOptions} initialClientId={assign} />
           <Link
             href="/admin/clients/new"
             aria-label="New client"
