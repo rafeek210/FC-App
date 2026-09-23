@@ -13,6 +13,9 @@ const CONDITION_OPTIONS = [
   "Heart Disease", "Back Pain", "Knee/Joint Pain", "Obesity", "Pregnancy", "Other",
 ];
 const LEVEL_OPTIONS = ["Pre-diagnostic", "Diagnosed", "On Medication", "Cured"];
+const COUNTRY_OPTIONS = [
+  "India", "UAE", "Qatar", "KSA", "Bahrain", "Kuwait", "Oman", "UK", "South Africa",
+];
 
 const EMPTY_FORM = {
   fullName: "", dob: "", primaryContact: "", whatsappContact: "",
@@ -434,11 +437,17 @@ export default function EditClientPage({ params }: { params: Promise<{ id: strin
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm text-neutral-600 mb-1">Nationality</label>
-            <input value={form.nationality} onChange={(e) => setForm({ ...form, nationality: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+            <select value={form.nationality} onChange={(e) => setForm({ ...form, nationality: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white">
+              <option value="">—</option>
+              {COUNTRY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-sm text-neutral-600 mb-1">Resident location</label>
-            <input value={form.residentLocation} onChange={(e) => setForm({ ...form, residentLocation: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+            <select value={form.residentLocation} onChange={(e) => setForm({ ...form, residentLocation: e.target.value })} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white">
+              <option value="">—</option>
+              {COUNTRY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
         </div>
 

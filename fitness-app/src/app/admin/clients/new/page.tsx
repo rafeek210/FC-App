@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Spinner from "@/components/Spinner";
 
+const COUNTRY_OPTIONS = [
+  "India", "UAE", "Qatar", "KSA", "Bahrain", "Kuwait", "Oman", "UK", "South Africa",
+];
+
 const EMPTY_FORM = {
   clientCode: "",
   fullName: "",
@@ -199,19 +203,25 @@ export default function NewClientPage() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm text-neutral-600 mb-1">Nationality (optional)</label>
-            <input
+            <select
               value={form.nationality}
               onChange={(e) => setForm({ ...form, nationality: e.target.value })}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-            />
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+            >
+              <option value="">—</option>
+              {COUNTRY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-sm text-neutral-600 mb-1">Resident location (optional)</label>
-            <input
+            <select
               value={form.residentLocation}
               onChange={(e) => setForm({ ...form, residentLocation: e.target.value })}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-            />
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+            >
+              <option value="">—</option>
+              {COUNTRY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
         </div>
 
