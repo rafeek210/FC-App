@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
   // 2. Read and validate the new client's details.
   const body = await request.json();
-  const { clientCode, fullName, password, joiningDate, joinedVia } = body;
+  const { clientCode, fullName, password, dob, joiningDate, joinedVia, primaryContact, whatsappContact, secondaryContact, email, fitnessGoal, healthConditions, remarks } = body;
 
   if (!clientCode || !fullName || !password) {
     return NextResponse.json(
@@ -77,8 +77,16 @@ export async function POST(request: Request) {
   const { error: clientError } = await admin.from("clients").insert({
     id: created.user.id,
     client_code: clientCode,
+    dob: dob || null,
     joining_date: joiningDate ?? new Date().toISOString().slice(0, 10),
     joined_via: joinedVia ?? null,
+    primary_contact: primaryContact || null,
+    whatsapp_contact: whatsappContact || null,
+    secondary_contact: secondaryContact || null,
+    email: email || null,
+    fitness_goal: fitnessGoal || null,
+    health_conditions: healthConditions || null,
+    remarks: remarks || null,
   });
 
   if (clientError) {
