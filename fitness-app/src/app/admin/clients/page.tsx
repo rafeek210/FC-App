@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import ClientsTable from "./ClientsTable";
 
 export default async function ClientsPage() {
   await requireRole("admin");
@@ -9,7 +10,7 @@ export default async function ClientsPage() {
   const { data: clients, error } = await supabase
     .from("clients")
     .select("*, profiles!inner(full_name, status)")
-    .order("joining_date", { ascending: false });
+    .order("client_code", { ascending: true });
 
   return (
     <main className="p-8 max-w-4xl">
@@ -34,35 +35,7 @@ export default async function ClientsPage() {
         <p className="text-sm text-neutral-400">No clients yet. Add your first one.</p>
       )}
 
-      <div className="flex flex-col gap-2">
-        {clients?.map((c) => (
-          <Link
-            key={c.id}
-            href={`/admin/clients/${c.id}`}
-            className="border border-neutral-200 rounded-lg px-4 py-3 flex items-center justify-between hover:border-rose-300 transition-colors"
-          >
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-medium text-sm">{c.profiles?.full_name}</p>
-                <p className="text-xs text-neutral-400 font-mono">{c.client_code}</p>
-              </div>
-              <p className="text-xs text-neutral-500 mt-0.5">
-                {c.primary_contact || "No contact on file"}
-                {c.joined_via ? ` · via ${c.joined_via}` : ""}
-              </p>
-            </div>
-            <span
-              className={`text-xs px-2.5 py-1 rounded-full ${
-                c.profiles?.status === "active"
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-neutral-100 text-neutral-500"
-              }`}
-            >
-              {c.profiles?.status}
-            </span>
-          </Link>
-        ))}
-      </div>
+      {clients && clients.length > 0 && <ClientsTable clients={clients} />}
     </main>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import Spinner from "@/components/Spinner";
 
 const EMPTY_FORM = {
@@ -15,14 +16,15 @@ const EMPTY_FORM = {
   email: "",
   joinedVia: "",
   fitnessGoal: "",
-  healthConditions: "",
   remarks: "",
 };
 
 export default function NewClientPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [form, setForm] = useState(EMPTY_FORM);
-  const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -43,21 +45,48 @@ export default function NewClientPage() {
       return;
     }
 
-    setStatus("done");
-    setMessage(`Client ${form.clientCode} created. Share the code and password with them directly.`);
-    setForm(EMPTY_FORM);
+    // Client now exists, so we have an id to attach a photo to, if one was chosen.
+    if (photoFile) {
+      const ext = photoFile.name.split(".").pop();
+      const path = `${data.clientId}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("client-photos")
+        .upload(path, photoFile, { upsert: true });
+      if (!uploadError) {
+        const { data: pub } = supabase.storage.from("client-photos").getPublicUrl(path);
+        await supabase.from("clients").update({ profile_pic_url: pub.publicUrl }).eq("id", data.clientId);
+      }
+    }
+
+    router.push("/admin/clients");
+    router.refresh();
   }
 
   return (
-    <main className="p-8 max-w-md">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-medium">Add a new client</h1>
-        <button onClick={() => router.push("/admin/clients")} className="text-sm text-neutral-400 hover:text-neutral-600">
-          Close
-        </button>
-      </div>
+    <main className="p-8 max-w-md relative">
+      <button
+        onClick={() => router.push("/admin/clients")}
+        aria-label="Close"
+        className="absolute top-6 right-6 text-neutral-400 hover:text-neutral-600"
+      >
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <h1 className="text-xl font-medium mb-6">Add a new client</h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div>
+          <label className="block text-sm text-neutral-600 mb-1">Profile photo (optional)</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+            className="text-sm"
+          />
+        </div>
+
         <div>
           <label className="block text-sm text-neutral-600 mb-1">Client code</label>
           <input
@@ -165,15 +194,9 @@ export default function NewClientPage() {
           />
         </div>
 
-        <div>
-          <label className="block text-sm text-neutral-600 mb-1">Health conditions (optional)</label>
-          <textarea
-            rows={2}
-            value={form.healthConditions}
-            onChange={(e) => setForm({ ...form, healthConditions: e.target.value })}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-          />
-        </div>
+        <p className="text-xs text-neutral-400 -mt-2">
+          Health conditions can be added after creating the client, from their profile.
+        </p>
 
         <div>
           <label className="block text-sm text-neutral-600 mb-1">Remarks (optional)</label>
@@ -185,11 +208,7 @@ export default function NewClientPage() {
           />
         </div>
 
-        {message && (
-          <p className={`text-sm ${status === "error" ? "text-rose-600" : "text-emerald-600"}`}>
-            {message}
-          </p>
-        )}
+        {status === "error" && <p className="text-sm text-rose-600">{message}</p>}
 
         <button
           type="submit"
